@@ -1,13 +1,13 @@
 
+import csv
 import json
-import math
 import sys
 from datetime import datetime
 
 import pandas as pd
 from PyQt5 import QtCore
 from PyQt5.QtCore import QSize, Qt
-from PyQt5.QtGui import QColor, QIcon, QPalette, QDoubleValidator
+from PyQt5.QtGui import QColor, QDoubleValidator, QIcon, QPalette
 from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
                              QGroupBox, QHeaderView, QLabel, QLineEdit,
                              QMessageBox, QPushButton, QTableWidget,
@@ -41,15 +41,14 @@ def dark_mode(app):
 class WeightLog():
     def __init__(self, settings):
         self.settings = settings
-        self.df = pd.read_csv(self.settings['db_path'], encoding='utf-8')
-        self.tabdialog = Tab(settings, self.df)
+        # self.df = pd.read_csv(self.settings['db_path'], encoding='utf-8')
+        self.tabdialog = Tab(settings)
         self.tabdialog.show()
 
 
 class Tab(QDialog):
-    def __init__(self, settings, database):
+    def __init__(self, settings):
         super().__init__()
-        self.database = database
         self.setWindowTitle("Body Weight Log")
         self.setWindowIcon(QIcon("icon.png"))
         vbox = QVBoxLayout()
@@ -63,7 +62,7 @@ class Tab(QDialog):
                 settings['WindowWidth'],
                 settings['WindowHeight']))
 
-        tabWidget.addTab(TabAdd(settings, database), "Add data")
+        tabWidget.addTab(TabAdd(settings), "Add data")
         tabWidget.addTab(TabCSV(settings), "View table")
         tabWidget.addTab(TabPlotting(settings), "Plot data")
         vbox.addWidget(tabWidget)
@@ -71,14 +70,15 @@ class Tab(QDialog):
 
 
 class TabAdd(QWidget):
-    def __init__(self, settings, data):
+    def __init__(self, settings):
         super().__init__()
+        self.settings = settings
         self.font_size = settings['font_point_size']
         weightlabel = QLabel("Weight (kg):")
         self.weight_edit = QLineEdit()
         self.only_floats = QDoubleValidator()
         self.weight_edit.setValidator(self.only_floats)
-        self.weight_edit.setPlaceholderText(str(self.last_measurement(data)))
+        self.weight_edit.setPlaceholderText(self.last_measurement())
 
         date = QLabel("Date:")
         self.date_edit = QLineEdit()
@@ -89,7 +89,6 @@ class TabAdd(QWidget):
         self.comment_edit.setPlaceholderText("Optional")
 
         addval = QPushButton("Add value")
-
         addval.clicked.connect(self.clickMethod)
 
         vbox = QVBoxLayout()
@@ -104,34 +103,93 @@ class TabAdd(QWidget):
         vbox.addWidget(addval)
         self.setLayout(vbox)
 
-    def last_measurement(self, df):
+    def last_measurement(self):
         """
         Get the last weight value entered into the database.
 
         Returns
         -------
-        float
+        str
             Last measured weight in kg.
         """
-        i = len(df) - 1
-        last_val = float('nan')
-        while math.isnan(last_val) and i >= 0:
-            last_val = df.iloc[i]['Weight (kg)']
-            i -= 1
-        return last_val
+        with open(self.settings['db_path'], newline='') as f:
+            reader = csv.reader(f)
+            data = list(reader)
+        for entry in reversed(data):
+            if entry[1] != '':
+                return str(entry[1])
+        return ''
 
-    def test_date_val(self):
-        new_date_is_valid = True
+    def date_format_correct(self):
+        """
+        Check that date entered conforms to "%Y-%m-%d" format.
+
+        Returns
+        -------
+        bool
+            True if date is of a valid format, else False.
+        """
+        valid_format = True
         try:
             new_val = self.date_edit.text()
             datetime_object = datetime.strptime(new_val, "%Y-%m-%d")
         except BaseException:
-            new_date_is_valid = False
-        return new_date_is_valid
+            valid_format = False
+        return valid_format
 
+    def date_temporal_paradox_free(self):
+        """
+        Checks that the date entered is not after todays date. You can't know
+        tommorrows weight if you haven't measured it yet.
+
+        Returns
+        -------
+        bool
+            True if date is not a temporal paradox, else False.
+        """
+        valid_date = True
+        new_val = self.date_edit.text()
+        datetime_object = datetime.strptime(new_val, "%Y-%m-%d")
+
+        if datetime_object > datetime.now():
+            valid_date = False
+        return valid_date
 
     def clickMethod(self):
-        if self.test_date_val():
+        if not self.date_format_correct():
+            msg = QMessageBox()
+            msg.setWindowTitle("Warning")
+            msg.setWindowIcon(QIcon("icon.png"))
+            msg.setIcon(QMessageBox.Warning)
+
+            font = msg.font()
+            font.setPointSize(self.font_size)
+            msg.setFont(font)
+
+            msg.setText("Date entered in incorrect format.")
+            msg.setStandardButtons(QMessageBox.Ok)
+            msg.setDefaultButton(QMessageBox.Ok)
+
+            x = msg.exec_()  # show our messagebox
+
+        elif not self.date_temporal_paradox_free():
+            msg = QMessageBox()
+            msg.setWindowTitle("Warning")
+            msg.setWindowIcon(QIcon("icon.png"))
+            msg.setIcon(QMessageBox.Warning)
+
+            font = msg.font()
+            font.setPointSize(self.font_size)
+            msg.setFont(font)
+
+            msg.setText(
+                "Date entered is invalid since it is after today's date.")
+            msg.setStandardButtons(QMessageBox.Ok)
+            msg.setDefaultButton(QMessageBox.Ok)
+
+            x = msg.exec_()  # show our messagebox
+
+        else:
             msg = QMessageBox()
             msg.setWindowTitle("New entry")
             msg.setWindowIcon(QIcon("icon.png"))
@@ -144,28 +202,9 @@ class TabAdd(QWidget):
             msg.buttonClicked.connect(self.button_accepted)
             x = msg.exec_()  # show our messagebox
 
-        else:
-            msg = QMessageBox()
-            msg.setWindowTitle("Warning")
-            msg.setWindowIcon(QIcon("icon.png"))
-            msg.setIcon(QMessageBox.Warning)
-
-            font = msg.font()
-            font.setPointSize(self.font_size)
-            msg.setFont(font)
-
-            msg.setText("Date entered in incorrect format, try again")
-            msg.setStandardButtons(QMessageBox.Ok)
-            msg.setDefaultButton(QMessageBox.Ok)
-
-            x = msg.exec_()  # show our messagebox
-
-
     def button_accepted(self, i):
         if i.text() == "OK":
             print("Entry added")
-        if i.text() == "Cancel":
-            print("Entry cancelled")
 
 
 class PandasWidget(QTableWidget):
