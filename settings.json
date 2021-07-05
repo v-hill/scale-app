@@ -1,0 +1,6 @@
+{
+    "WindowHeight": 720,
+    "WindowWidth": 960,
+    "db_path": "body_weight_db.csv",
+    "font_point_size": 14
+}
