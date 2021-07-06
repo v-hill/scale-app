@@ -16,6 +16,19 @@ from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
 
 
 def dark_mode(app):
+    """
+    Set the colour palette of an app to a custom dark mode theme.
+
+    Parameters
+    ----------
+    app : PyQt5.QtWidgets.QApplication
+        The Qt App object
+
+    Returns
+    -------
+    PyQt5.QtWidgets.QApplication
+        The Qt app with the dark mode theme applied.
+    """
     palette = QPalette()
     palette.setColor(QPalette.Window, QColor(30, 30, 30))
     palette.setColor(QPalette.WindowText, QColor(225, 225, 225))
@@ -39,6 +52,11 @@ def dark_mode(app):
 
 
 class WeightLog():
+    """
+    Main class for storing both the Qt app and database, with functions
+    that act on both objects.
+    """
+
     def __init__(self, settings):
         self.settings = settings
         # self.df = pd.read_csv(self.settings['db_path'], encoding='utf-8')
@@ -47,6 +65,18 @@ class WeightLog():
 
 
 class Tab(QDialog):
+    """
+    Child class of a Qt dialog window. Where a dialog window is a top-level
+    window mostly used for short-term tasks and brief communications with
+    the user.
+
+    Parameters
+    ----------
+    QDialog : PyQt5.QtWidgets.QDialog
+        The main Qt dialog window which stores the individual tabs of the
+        programme.
+    """
+
     def __init__(self, settings):
         super().__init__()
         self.setWindowTitle("Body Weight Log")
@@ -70,7 +100,26 @@ class Tab(QDialog):
 
 
 class TabAdd(QWidget):
+    """
+    Child class of Qt QWidget object. This class represents the first
+    tab of the user interface which contains the database additional
+    functionalilty.
+
+    Parameters
+    ----------
+    QWidget : PyQt5.QtWidgets.QWidget
+        The widget is the atom of the user interface.
+    """
+
     def __init__(self, settings):
+        """
+        Setup the "Add data" applicaiton tab.
+
+        Parameters
+        ----------
+        settings : dict
+            Settings dict imported from the app settings.json file.
+        """
         super().__init__()
         self.settings = settings
         self.font_size = settings['font_point_size']
@@ -156,6 +205,9 @@ class TabAdd(QWidget):
         return valid_date
 
     def clickMethod(self):
+        """
+        Defines the response to the "Add value" button.
+        """
         if not self.date_format_correct():
             msg = QMessageBox()
             msg.setWindowTitle("Warning")
@@ -203,11 +255,30 @@ class TabAdd(QWidget):
             x = msg.exec_()  # show our messagebox
 
     def button_accepted(self, i):
+        """
+        Execute if okay button is pressed from AddTab.
+
+        Parameters
+        ----------
+        i :<PyQt5.QtWidgets.QPushButton
+            Button class object
+        """
         if i.text() == "OK":
             print("Entry added")
 
 
 class PandasWidget(QTableWidget):
+    """
+    Redifinition of the Qt QTableWidget class to implement an editable table
+    view of the database.
+
+    Parameters
+    ----------
+    QTableWidget : PyQt5.QtWidgets.QTableWidget
+        Table widgets provide standard table display facilities for
+        applications.
+    """
+
     def __init__(self, df):
         super().__init__()
         self.df = df
@@ -218,6 +289,14 @@ class PandasWidget(QTableWidget):
         self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
     def insert_data(self, data):
+        """
+        Populate the table with the data from the weight database.
+
+        Parameters
+        ----------
+        data : Pandas DataFrame
+            The data to be displayed in the table.
+        """
         # set table dimension
         self.df = data
         nRows, nColumns = data.shape
@@ -236,11 +315,32 @@ class PandasWidget(QTableWidget):
         self.scrollToBottom()
 
     def updateDF(self, row, column):
+        """
+        Updates a specificed cell in the database.
+
+        Parameters
+        ----------
+        row : int
+            The database row index.
+        column : int
+            The database column index.
+        """
         text = self.item(row, column).text()
         self.df.iloc[row, column] = text
 
 
 class TabCSV(QWidget):
+    """
+    Child class of Qt QWidget object. This class represents the second tab in
+    the application which presents a table of the weight database which can be
+    inspected and edited by the user.
+
+    Parameters
+    ----------
+    QWidget : PyQt5.QtWidgets.QWidget
+        The widget is the atom of the user interface.
+    """
+
     def __init__(self, settings):
         super().__init__()
         self.settings = settings
@@ -262,21 +362,51 @@ class TabCSV(QWidget):
         self.setLayout(mainLayout)
 
     def load_csv(self):
+        """
+        Load in the weight databse from the location specified in the
+        settings json file.
+        """
         self.database = pd.read_csv(self.settings['db_path'], encoding='utf-8')
 
     def write_csv(self):
+        """
+        Write to the weight databse in the location specified in the settings
+        json file.
+        """
         self.tableView.df.to_csv('Data export.csv', index=False)
         print('CSV file exported')
 
     @QtCore.pyqtSlot()
     def reload_csv(self):
+        """
+        Full function to load csv data and populate the table with the new
+        data.
+        """
         self.load_csv()
         self.tableView.insert_data(self.database)
         self.update()
 
 
 class TabPlotting(QWidget):
+    """
+    Child class of Qt QWidget object. This class represents the final tab of
+    the application which is used for plotting values in the weight database.
+
+    Parameters
+    ----------
+    QWidget : PyQt5.QtWidgets.QWidget
+        The widget is the atom of the user interface.
+    """
+
     def __init__(self, settings):
+        """
+        Initialse the layout and user iterface of the plotting tab.
+
+        Parameters
+        ----------
+        settings : dict
+            Settings from the json settings file.
+        """
         super().__init__()
         self.settings = settings
         groupBox = QGroupBox("Select data range")
@@ -309,13 +439,15 @@ class TabPlotting(QWidget):
         self.setLayout(mainLayout)
 
 
-# Import settings
-with open('settings.json', 'r') as f:
-    settings = json.load(f)
+# The main attraction
+if __name__ == "__main__":
+    # Import settings
+    with open('settings.json', 'r') as f:
+        settings = json.load(f)
 
-
-app = QApplication(sys.argv)
-app.setStyle("Fusion")  # Force the style to be the same on all OSs
-app = dark_mode(app)
-weightlog = WeightLog(settings)
-app.exec()
+    # Start the app
+    app = QApplication(sys.argv)
+    app.setStyle("Fusion")  # Force the style to be the same on all OSs
+    app = dark_mode(app)
+    weightlog = WeightLog(settings)
+    app.exec()
