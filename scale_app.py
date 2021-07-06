@@ -3,6 +3,7 @@ import csv
 import json
 import sys
 from datetime import datetime
+from os import path
 
 import pandas as pd
 from PyQt5 import QtCore
@@ -59,7 +60,7 @@ class WeightLog():
 
     def __init__(self, settings):
         self.settings = settings
-        # self.df = pd.read_csv(self.settings['db_path'], encoding='utf-8')
+        # self.df = pd.read_csv(self.settings['database_path'], encoding='utf-8')
         self.tabdialog = Tab(settings)
         self.tabdialog.show()
 
@@ -161,7 +162,7 @@ class TabAdd(QWidget):
         str
             Last measured weight in kg.
         """
-        with open(self.settings['db_path'], newline='') as f:
+        with open(self.settings['database_path'], newline='') as f:
             reader = csv.reader(f)
             data = list(reader)
         for entry in reversed(data):
@@ -260,7 +261,7 @@ class TabAdd(QWidget):
 
         Parameters
         ----------
-        i :<PyQt5.QtWidgets.QPushButton
+        i : PyQt5.QtWidgets.QPushButton
             Button class object
         """
         if i.text() == "OK":
@@ -366,7 +367,9 @@ class TabCSV(QWidget):
         Load in the weight databse from the location specified in the
         settings json file.
         """
-        self.database = pd.read_csv(self.settings['db_path'], encoding='utf-8')
+        self.database = pd.read_csv(
+            self.settings['database_path'],
+            encoding='utf-8')
 
     def write_csv(self):
         """
@@ -439,11 +442,36 @@ class TabPlotting(QWidget):
         self.setLayout(mainLayout)
 
 
+def make_database(name):
+    """
+    Create database if no current database exists.
+
+    Parameters
+    ----------
+    name : str
+        Name of database (must have .csv extension)
+        e.g. my_database.csv
+
+    """
+    if path.exists(name):
+        return True
+    else:
+        headers = [['Date', 'Weight(kg)', 'Notes']]
+        with open(name, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerows(headers)
+    return False
+
+
 # The main attraction
 if __name__ == "__main__":
+
     # Import settings
     with open('settings.json', 'r') as f:
         settings = json.load(f)
+
+    # Create database if one doesn't exist
+    db_exists = make_database(settings['database_path'])
 
     # Start the app
     app = QApplication(sys.argv)
