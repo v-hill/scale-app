@@ -1,4 +1,3 @@
-
 import csv
 import json
 import sys
@@ -170,6 +169,17 @@ class TabAdd(QWidget):
                 return str(entry[1])
         return ''
 
+    def date_already_has_data(self):
+        new_val = self.date_edit.text()
+        with open(self.settings['database_path'], newline='') as f:
+            reader = csv.reader(f)
+            data = list(reader)
+
+        for entry in reversed(data):
+            if entry[1] == new_val:
+                True
+        return False
+
     def date_format_correct(self):
         """
         Check that date entered conforms to "%Y-%m-%d" format.
@@ -242,6 +252,24 @@ class TabAdd(QWidget):
 
             x = msg.exec_()  # show our messagebox
 
+        elif not self.date_already_has_data():
+            msg = QMessageBox()
+            msg.setWindowTitle("Warning")
+            msg.setWindowIcon(QIcon("icon.png"))
+            msg.setIcon(QMessageBox.Warning)
+
+            font = msg.font()
+            font.setPointSize(self.font_size)
+            msg.setFont(font)
+
+            msg.setText("Date entered already has a weight value of "
+                        f"{self.weight_edit.text()} in the database. Do you "
+                        "wish to override this value?")
+            msg.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+            msg.setDefaultButton(QMessageBox.Ok)
+            msg.buttonClicked.connect(self.okay_button2)
+            x = msg.exec_()  # show our messagebox
+
         else:
             msg = QMessageBox()
             msg.setWindowTitle("New entry")
@@ -252,12 +280,13 @@ class TabAdd(QWidget):
             msg.setText("New entry added to weight log")
             msg.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
             msg.setDefaultButton(QMessageBox.Ok)
-            msg.buttonClicked.connect(self.button_accepted)
+            msg.buttonClicked.connect(self.okay_button1)
             x = msg.exec_()  # show our messagebox
 
-    def button_accepted(self, i):
+    def okay_button1(self, i):
         """
-        Execute if okay button is pressed from AddTab.
+        Execute if okay button is pressed from AddTab when no warnings are
+        presented.
 
         Parameters
         ----------
@@ -266,6 +295,19 @@ class TabAdd(QWidget):
         """
         if i.text() == "OK":
             print("Entry added")
+
+    def okay_button2(self, i):
+        """
+        Execute if okay button is pressed from AddTab when entry for given "
+        "date already exists in the database.
+
+        Parameters
+        ----------
+        i : PyQt5.QtWidgets.QPushButton
+            Button class object
+        """
+        if i.text() == "OK":
+            print("Entry overwritten")
 
 
 class PandasWidget(QTableWidget):
